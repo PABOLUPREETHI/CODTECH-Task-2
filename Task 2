@@ -1,0 +1,76 @@
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+
+public class VulnerabilityScanner {
+
+    // Define common ports to scan
+    private static final int[] COMMON_PORTS = {
+        21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5900, 8080
+    };
+
+    // Map of common services and their version banners
+    private static final Map<Integer, String> SERVICE_BANNERS = new HashMap<>();
+    
+    static {
+        SERVICE_BANNERS.put(21, "FTP");
+        SERVICE_BANNERS.put(22, "SSH");
+        SERVICE_BANNERS.put(23, "Telnet");
+        SERVICE_BANNERS.put(25, "SMTP");
+        SERVICE_BANNERS.put(80, "HTTP");
+        SERVICE_BANNERS.put(110, "POP3");
+        SERVICE_BANNERS.put(143, "IMAP");
+        SERVICE_BANNERS.put(443, "HTTPS");
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: java VulnerabilityScanner <hostname>");
+            return;
+        }
+
+        String hostname = args[0];
+        System.out.println("Scanning host: " + hostname);
+
+        for (int port : COMMON_PORTS) {
+            scanPort(hostname, port);
+        }
+    }
+
+    private static void scanPort(String hostname, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(hostname, port), 200);
+            System.out.println("Port " + port + " is open.");
+            detectService(socket, port);
+        } catch (IOException e) {
+            // Port is closed or unreachable
+        }
+    }
+
+    private static void detectService(Socket socket, int port) {
+        String service = SERVICE_BANNERS.get(port);
+        if (service != null) {
+            try {
+                InputStream input = socket.getInputStream();
+                byte[] buffer = new byte[1024];
+                int bytesRead = input.read(buffer);
+                String banner = new String(buffer, 0, bytesRead);
+                System.out.println("Detected " + service + " service on port " + port + ": " + banner.trim());
+                checkForVulnerabilities(service, banner.trim());
+            } catch (IOException e) {
+                System.out.println("Could not detect service on port " + port);
+            }
+        }
+    }
+
+    private static void checkForVulnerabilities(String service, String banner) {
+        // Basic version check for outdated software (extend with more specific checks as needed)
+        if (service.equals("SSH") && banner.contains("OpenSSH_5.3")) {
+            System.out.println("Warning: Detected outdated OpenSSH version 5.3, which has known vulnerabilities.");
+        }
+    }
+}
